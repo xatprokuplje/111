@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bot nalozi</title>
+<style>
+    :root {
+        --bg: #0f1416;
+        --panel: #161d20;
+        --panel-2: #1d262a;
+        --line: #263136;
+        --text: #e7f0f2;
+        --muted: #7f9298;
+        --accent: #3ddc97;
+        --accent-dim: #234f3d;
+        --danger: #e05a5a;
+        --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+        min-height: 100vh;
+        background:
+            radial-gradient(circle at 15% 0%, #142523 0%, transparent 45%),
+            var(--bg);
+        color: var(--text);
+        font-family: var(--font);
+        padding-bottom: 100px;
+    }
+
+    /* ---------- Top bar (naslov + akcije) ---------- */
+    .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--line);
+        background: var(--panel);
+        flex-wrap: wrap;
+    }
+    .topbar h1 { font-size: 18px; font-weight: 600; margin: 0; letter-spacing: 0.2px; }
+    .topbar h1 span { color: var(--accent); }
+    .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .topbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .btn-sm {
+        background: transparent;
+        border: 1px solid var(--line);
+        color: var(--text);
+        padding: 7px 12px;
+        border-radius: 7px;
+        font-size: 12.5px;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-sm.primary { background: var(--accent); border-color: var(--accent); color: #08110d; font-weight: 600; }
+    .btn-sm.primary:hover { filter: brightness(1.08); color: #08110d; }
+    .btn-sm:disabled { opacity: 0.5; cursor: default; }
+
+    /* ---------- Traka korisnika: od left 0 do right 0, u redove ---------- */
+    .users-strip {
+        position: sticky;
+        top: 0;
+        z-index: 6;
+        display: flex;
+        flex-wrap: wrap;
+        width: 100%;
+        background: var(--panel-2);
+        border-bottom: 1px solid var(--line);
+    }
+    .chip {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1 1 230px;
+        min-width: 200px;
+        padding: 8px 12px;
+        border-right: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+    .dot.on { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .chip-info { flex: 1; min-width: 0; }
+    .nick-input {
+        background: transparent;
+        border: 1px solid transparent;
+        color: var(--text);
+        font-size: 13.5px;
+        font-weight: 600;
+        padding: 2px 4px;
+        border-radius: 5px;
+        width: 100%;
+    }
+    .nick-input:hover { border-color: var(--line); }
+    .nick-input:focus { outline: none; border-color: var(--accent); background: var(--panel); }
+    .chip-username { color: var(--muted); font-size: 11px; line-height: 1.3; }
+    .chip-remove {
+        background: transparent;
+        border: 1px solid var(--line);
+        color: var(--muted);
+        width: 22px; height: 22px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 1;
+        flex: none;
+    }
+    .chip-remove:hover { border-color: var(--danger); color: var(--danger); }
+    .chip-add {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 1 1 230px;
+        min-width: 200px;
+        padding: 8px 12px;
+        border-right: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 12.5px;
+        background: transparent;
+        border-top: none; border-left: none;
+    }
+    .chip-add:hover { color: var(--accent); background: var(--panel); }
+    .empty-strip { padding: 14px 18px; color: var(--muted); font-size: 13px; }
+
+    /* ---------- Sekcija sa jedinstvenom tablom poruka ---------- */
+    .content { padding: 18px; max-width: 1100px; margin: 0 auto; }
+    .section-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+    .section-title h2 { font-size: 15px; margin: 0; font-weight: 600; }
+    .section-title .hint { color: var(--muted); font-size: 11.5px; }
+
+    .msg-table-wrap {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    table.msg-table { width: 100%; border-collapse: collapse; }
+    table.msg-table thead th {
+        text-align: left;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        color: var(--muted);
+        background: var(--panel-2);
+        padding: 9px 10px;
+        border-bottom: 1px solid var(--line);
+    }
+    table.msg-table th.col-time, table.msg-table th.col-action { text-align: center; }
+    table.msg-table tbody tr { border-bottom: 1px solid var(--line); }
+    table.msg-table tbody tr:last-child { border-bottom: none; }
+    table.msg-table tbody tr.dirty { background: rgba(61, 220, 151, 0.05); }
+    table.msg-table td { padding: 7px 10px; vertical-align: middle; }
+    td.col-user { white-space: nowrap; font-size: 13px; font-weight: 600; width: 160px; }
+    td.col-user select {
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        color: var(--text);
+        padding: 6px 8px;
+        border-radius: 6px;
+        font-size: 13px;
+        width: 100%;
+    }
+    td.col-msg { width: auto; }
+    .poruka-input {
+        width: 100%;
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        color: var(--text);
+        padding: 7px 9px;
+        border-radius: 6px;
+        font-size: 13.5px;
+    }
+    .poruka-input:focus { outline: none; border-color: var(--accent); }
+    td.col-time { width: 110px; text-align: center; }
+    .vreme-input {
+        width: 64px;
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        color: var(--text);
+        padding: 6px 6px;
+        border-radius: 6px;
+        font-size: 13px;
+        text-align: center;
+    }
+    .vreme-input:focus { outline: none; border-color: var(--accent); }
+    .vreme-unit { color: var(--muted); font-size: 11px; margin-left: 4px; }
+    td.col-action { width: 44px; text-align: center; }
+    .row-remove {
+        background: transparent;
+        border: 1px solid var(--line);
+        color: var(--muted);
+        width: 26px; height: 26px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1;
+    }
+    .row-remove:hover { border-color: var(--danger); color: var(--danger); }
+    .table-empty { padding: 40px 0; text-align: center; color: var(--muted); font-size: 13.5px; }
+
+    .add-row-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px;
+        background: var(--panel-2);
+        flex-wrap: wrap;
+    }
+    .add-row-bar select {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        color: var(--text);
+        padding: 7px 9px;
+        border-radius: 6px;
+        font-size: 12.5px;
+    }
+
+    .save-bar { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+    .save-bar .status { color: var(--muted); font-size: 12px; }
+    .save-bar .status.dirty { color: var(--accent); }
+
+    /* ---------- Modal (dodavanje naloga) ---------- */
+    .overlay {
+        position: fixed; inset: 0;
+        background: rgba(5, 8, 9, 0.65);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        z-index: 20;
+    }
+    .overlay.show { display: flex; }
+    .modal {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 24px;
+        width: 100%;
+        max-width: 380px;
+    }
+    .modal h2 { margin: 0 0 4px; font-size: 17px; }
+    .modal .hint { color: var(--muted); font-size: 12.5px; margin-bottom: 18px; }
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .field input {
+        width: 100%;
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        color: var(--text);
+        padding: 10px 12px;
+        border-radius: 8px;
+        font-size: 14px;
+    }
+    .field input:focus { outline: none; border-color: var(--accent); }
+    .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+    .btn {
+        flex: 1;
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: transparent;
+        color: var(--text);
+        font-size: 14px;
+        cursor: pointer;
+    }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #08110d; font-weight: 600; }
+    .btn:hover { filter: brightness(1.08); }
+    .error { color: var(--danger); font-size: 12.5px; margin-top: 10px; min-height: 14px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+    <div>
+        <h1>Bot <span>nalozi</span></h1>
+        <div class="sub" id="subtitle">Učitavanje...</div>
+    </div>
+    <div class="topbar-actions">
+        <button class="btn-sm" id="exportJson">⬇ Izvezi JSON</button>
+        <button class="btn-sm" id="importJsonBtn">⬆ Učitaj JSON</button>
+        <input type="file" id="importJsonFile" accept="application/json" style="display:none">
+        <button class="btn-sm primary" id="openAdd">+ Nalog</button>
+    </div>
+</div>
+
+<div class="users-strip" id="usersStrip"></div>
+
+<div class="content">
+    <div class="section-title">
+        <h2>Poruke</h2>
+        <div class="hint">Korisnik → poruka → vreme (razmak od prethodne poruke istog korisnika, u minutima)</div>
+    </div>
+
+    <div class="msg-table-wrap">
+        <table class="msg-table">
+            <thead>
+                <tr>
+                    <th class="col-user">Korisnik</th>
+                    <th>Poruka</th>
+                    <th class="col-time">Vreme</th>
+                    <th class="col-action"></th>
+                </tr>
+            </thead>
+            <tbody id="msgTableBody"></tbody>
+        </table>
+        <div class="add-row-bar">
+            <select id="addRowUser"></select>
+            <button class="btn-sm" id="addRowBtn">+ Dodaj poruku</button>
+        </div>
+    </div>
+
+    <div class="save-bar">
+        <button class="btn-sm primary" id="saveAllBtn">💾 Sačuvaj sve poruke</button>
+        <span class="status" id="saveStatus"></span>
+    </div>
+</div>
+
+<div class="overlay" id="overlay">
+    <div class="modal">
+        <h2>Dodaj nalog</h2>
+        <div class="hint">Unesi xat korisničko ime i API ključ. Nadimak u chatu je podrazumevano isti kao korisničko ime.</div>
+
+        <div class="field">
+            <label>Korisničko ime</label>
+            <input id="fUsername" type="text" placeholder="npr. AngelDobric" autocomplete="off">
+        </div>
+        <div class="field">
+            <label>API ključ</label>
+            <input id="fApikey" type="text" placeholder="API ključ naloga" autocomplete="off">
+        </div>
+        <div class="field">
+            <label>Nadimak u chatu (opciono)</label>
+            <input id="fNickname" type="text" placeholder="Podrazumevano = korisničko ime" autocomplete="off">
+        </div>
+
+        <div class="error" id="formError"></div>
+
+        <div class="modal-actions">
+            <button class="btn" id="cancelAdd">Otkaži</button>
+            <button class="btn primary" id="confirmAdd">Dodaj</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let ADMIN_TOKEN = sessionStorage.getItem('adminToken') || '';
+
+    function headers (json = true) {
+        const h = {};
+        if (json) h['Content-Type'] = 'application/json';
+        if (ADMIN_TOKEN) h['x-admin-token'] = ADMIN_TOKEN;
+        return h;
+    }
+
+    async function api (url, options = {}) {
+        const res = await fetch(url, { ...options, headers: { ...headers(!!options.body), ...(options.headers || {}) } });
+        if (res.status === 401) {
+            const token = prompt('Unesi pristupni kod za admin panel:');
+            if (token) {
+                ADMIN_TOKEN = token;
+                sessionStorage.setItem('adminToken', token);
+                return api(url, options);
+            }
+            throw new Error('Neautorizovan pristup.');
+        }
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Greška.');
+        return data;
+    }
+
+    function escapeHtml (s) {
+        return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    function escapeAttr (s) { return escapeHtml(s); }
+
+    // ---------- Stanje ----------
+    // state.accounts drži lokalnu (editabilnu) kopiju naloga; dirty prati
+    // koji nalozi imaju nesačuvane izmene (poruke ili interval).
+    const state = { accounts: [] };
+    const dirty = new Set();
+    let isEditing = false;
+
+    const usersStrip = document.getElementById('usersStrip');
+    const msgTableBody = document.getElementById('msgTableBody');
+    const addRowUser = document.getElementById('addRowUser');
+    const subtitle = document.getElementById('subtitle');
+    const saveStatus = document.getElementById('saveStatus');
+
+    function intervalMinutesOf (account) {
+        return Math.max(1, Math.round((account.messageIntervalMs || 60000) / 60000));
+    }
+
+    function markDirty (accountId) {
+        dirty.add(String(accountId));
+        updateSaveStatus();
+    }
+
+    function updateSaveStatus () {
+        if (dirty.size === 0) {
+            saveStatus.textContent = '';
+            saveStatus.classList.remove('dirty');
+        } else {
+            saveStatus.textContent = `Nesačuvane izmene: ${dirty.size} ${dirty.size === 1 ? 'nalog' : 'naloga'}.`;
+            saveStatus.classList.add('dirty');
+        }
+    }
+
+    // ---------- Render: traka korisnika ----------
+    function renderStrip () {
+        if (state.accounts.length === 0) {
+            usersStrip.innerHTML = '<div class="empty-strip">Nema dodatih naloga. Klikni "+ Nalog" da dodaš prvi.</div>';
+            return;
+        }
+        usersStrip.innerHTML = state.accounts.map((a) => `
+            <div class="chip" data-id="${a.id}">
+                <div class="dot ${a.connected ? 'on' : ''}"></div>
+                <div class="chip-info">
+                    <input class="nick-input" value="${escapeAttr(a.nickname)}" data-original="${escapeAttr(a.nickname)}" spellcheck="false">
+                    <div class="chip-username">@${escapeHtml(a.username)} · ${a.connected ? 'online' : 'offline'}</div>
+                </div>
+                <button class="chip-remove" title="Ukloni nalog">×</button>
+            </div>
+        `).join('');
+    }
+
+    // ---------- Render: select za dodavanje reda ----------
+    function renderAddRowSelect () {
+        if (state.accounts.length === 0) {
+            addRowUser.innerHTML = '<option value="">Nema naloga</option>';
+            addRowUser.disabled = true;
+            document.getElementById('addRowBtn').disabled = true;
+            return;
+        }
+        addRowUser.disabled = false;
+        document.getElementById('addRowBtn').disabled = false;
+        const prevValue = addRowUser.value;
+        addRowUser.innerHTML = state.accounts.map((a) =>
+            `<option value="${a.id}">${escapeHtml(a.nickname)}</option>`
+        ).join('');
+        if (prevValue && state.accounts.some((a) => String(a.id) === prevValue)) {
+            addRowUser.value = prevValue;
+        }
+    }
+
+    // ---------- Render: jedinstvena tabela poruka ----------
+    function renderTable () {
+        renderAddRowSelect();
+
+        const rows = [];
+        state.accounts.forEach((a) => {
+            const messages = Array.isArray(a.messages) ? a.messages : [];
+            messages.forEach((text, idx) => {
+                rows.push({ account: a, idx, text });
+            });
+        });
+
+        if (rows.length === 0) {
+            msgTableBody.innerHTML = '<tr><td colspan="4"><div class="table-empty">Nema podešenih poruka. Dodaj prvu ispod tabele.</div></td></tr>';
+            return;
+        }
+
+        msgTableBody.innerHTML = rows.map(({ account, idx, text }) => {
+            const isDirty = dirty.has(String(account.id));
+            return `
+            <tr class="${isDirty ? 'dirty' : ''}" data-account-id="${account.id}" data-idx="${idx}">
+                <td class="col-user">
+                    <select class="user-select" data-account-id="${account.id}" data-idx="${idx}">
+                        ${state.accounts.map((acc) => `<option value="${acc.id}" ${acc.id === account.id ? 'selected' : ''}>${escapeHtml(acc.nickname)}</option>`).join('')}
+                    </select>
+                </td>
+                <td class="col-msg">
+                    <input class="poruka-input" value="${escapeAttr(text)}" placeholder="Tekst poruke..." spellcheck="false" data-account-id="${account.id}" data-idx="${idx}">
+                </td>
+                <td class="col-time">
+                    <input class="vreme-input" type="number" min="1" step="1" value="${intervalMinutesOf(account)}" data-account-id="${account.id}">
+                    <span class="vreme-unit">min</span>
+                </td>
+                <td class="col-action">
+                    <button class="row-remove" title="Ukloni poruku" data-account-id="${account.id}" data-idx="${idx}">×</button>
+                </td>
+            </tr>
+        `;
+        }).join('');
+    }
+
+    function renderAll () {
+        renderStrip();
+        renderTable();
+        subtitle.textContent = `${state.accounts.length} ${state.accounts.length === 1 ? 'nalog' : 'naloga'} · svi u istom chatu`;
+    }
+
+    // ---------- Učitavanje sa servera ----------
+    async function load () {
+        // Ne diramo DOM dok korisnik nešto kuca, niti dok postoje nesačuvane
+        // izmene - da auto-refresh na 8s ne bi obrisao ono što još nije sačuvano.
+        if (isEditing || dirty.size > 0) return;
+        try {
+            const accounts = await api('/api/accounts');
+            state.accounts = accounts;
+            renderAll();
+        } catch (e) {
+            subtitle.textContent = e.message;
+        }
+    }
+
+    // ---------- Fokus / editing lock ----------
+    document.addEventListener('focusin', (e) => {
+        if (e.target.matches('input, select, textarea')) isEditing = true;
+    });
+    document.addEventListener('focusout', () => {
+        setTimeout(() => {
+            if (!document.activeElement || !document.activeElement.matches('input, select, textarea')) isEditing = false;
+        }, 50);
+    });
+
+    // ---------- Traka korisnika: interakcije ----------
+    usersStrip.addEventListener('click', async (e) => {
+        const chip = e.target.closest('.chip');
+        if (!chip) return;
+        const id = chip.dataset.id;
+
+        if (e.target.classList.contains('chip-remove')) {
+            if (!confirm('Ukloniti ovaj nalog? Bot će odmah izaći iz chata.')) return;
+            try {
+                await api(`/api/accounts/${id}`, { method: 'DELETE' });
+                dirty.delete(String(id));
+                load();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+    });
+
+    usersStrip.addEventListener('keydown', (e) => {
+        if (e.target.classList.contains('nick-input') && e.key === 'Enter') {
+            e.target.blur();
+        }
+    });
+
+    usersStrip.addEventListener('blur', async (e) => {
+        if (!e.target.classList.contains('nick-input')) return;
+        const input = e.target;
+        const value = input.value.trim();
+        const original = input.dataset.original;
+        if (!value || value === original) { input.value = original; return; }
+
+        const id = input.closest('.chip').dataset.id;
+        try {
+            const updated = await api(`/api/accounts/${id}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ nickname: value }),
+            });
+            input.dataset.original = updated.nickname;
+            const acc = state.accounts.find((a) => String(a.id) === String(id));
+            if (acc) acc.nickname = updated.nickname;
+            renderTable();
+        } catch (err) {
+            alert(err.message);
+            input.value = original;
+        }
+    }, true);
+
+    // ---------- Tabela poruka: interakcije ----------
+    msgTableBody.addEventListener('input', (e) => {
+        const accId = e.target.dataset.accountId;
+        if (!accId) return;
+        const acc = state.accounts.find((a) => String(a.id) === String(accId));
+        if (!acc) return;
+
+        if (e.target.classList.contains('poruka-input')) {
+            const idx = Number(e.target.dataset.idx);
+            acc.messages[idx] = e.target.value;
+            markDirty(accId);
+        }
+
+        if (e.target.classList.contains('vreme-input')) {
+            const minutes = Math.max(1, Number(e.target.value) || 1);
+            acc.messageIntervalMs = minutes * 60000;
+            markDirty(accId);
+            // Isti interval važi za sve poruke tog naloga - uskladi ostala polja u tabeli.
+            document.querySelectorAll(`.vreme-input[data-account-id="${accId}"]`).forEach((el) => {
+                if (el !== e.target) el.value = minutes;
+            });
+        }
+    });
+
+    msgTableBody.addEventListener('change', (e) => {
+        if (!e.target.classList.contains('user-select')) return;
+        const oldAccId = e.target.dataset.accountId;
+        const idx = Number(e.target.dataset.idx);
+        const newAccId = e.target.value;
+        if (oldAccId === newAccId) return;
+
+        const oldAcc = state.accounts.find((a) => String(a.id) === String(oldAccId));
+        const newAcc = state.accounts.find((a) => String(a.id) === String(newAccId));
+        if (!oldAcc || !newAcc) return;
+
+        const [text] = oldAcc.messages.splice(idx, 1);
+        newAcc.messages.push(text ?? '');
+        markDirty(oldAccId);
+        markDirty(newAccId);
+        renderTable();
+    });
+
+    msgTableBody.addEventListener('click', (e) => {
+        if (!e.target.classList.contains('row-remove')) return;
+        const accId = e.target.dataset.accountId;
+        const idx = Number(e.target.dataset.idx);
+        const acc = state.accounts.find((a) => String(a.id) === String(accId));
+        if (!acc) return;
+        acc.messages.splice(idx, 1);
+        markDirty(accId);
+        renderTable();
+    });
+
+    document.getElementById('addRowBtn').addEventListener('click', () => {
+        const accId = addRowUser.value;
+        const acc = state.accounts.find((a) => String(a.id) === String(accId));
+        if (!acc) return;
+        if (!Array.isArray(acc.messages)) acc.messages = [];
+        acc.messages.push('');
+        markDirty(accId);
+        renderTable();
+        const inputs = document.querySelectorAll(`.poruka-input[data-account-id="${accId}"]`);
+        if (inputs.length) inputs[inputs.length - 1].focus();
+    });
+
+    // ---------- Sačuvaj sve ----------
+    document.getElementById('saveAllBtn').addEventListener('click', async () => {
+        if (dirty.size === 0) return;
+        const btn = document.getElementById('saveAllBtn');
+        btn.disabled = true;
+        const ids = [...dirty];
+        try {
+            for (const id of ids) {
+                const acc = state.accounts.find((a) => String(a.id) === String(id));
+                if (!acc) continue;
+                const messages = (acc.messages || []).map((m) => (m || '').trim()).filter(Boolean);
+                await api(`/api/accounts/${id}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        messages,
+                        messageIntervalMinutes: intervalMinutesOf(acc),
+                    }),
+                });
+                dirty.delete(id);
+            }
+            updateSaveStatus();
+            await load();
+        } catch (err) {
+            alert(err.message);
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    // ---------- JSON izvoz / uvoz (na uređaju) ----------
+    document.getElementById('exportJson').addEventListener('click', () => {
+        const payload = {
+            exportedAt: new Date().toISOString(),
+            accounts: state.accounts.map((a) => ({
+                username: a.username,
+                nickname: a.nickname,
+                messages: a.messages || [],
+                messageIntervalMinutes: intervalMinutesOf(a),
+            })),
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `bot-nalozi-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    });
+
+    const importInput = document.getElementById('importJsonFile');
+    document.getElementById('importJsonBtn').addEventListener('click', () => importInput.click());
+
+    importInput.addEventListener('change', async () => {
+        const file = importInput.files[0];
+        importInput.value = '';
+        if (!file) return;
+
+        let parsed;
+        try {
+            const text = await file.text();
+            parsed = JSON.parse(text);
+        } catch (err) {
+            alert('Fajl nije validan JSON.');
+            return;
+        }
+
+        const imported = Array.isArray(parsed) ? parsed : parsed.accounts;
+        if (!Array.isArray(imported)) {
+            alert('JSON fajl nema očekivanu strukturu (niz naloga).');
+            return;
+        }
+
+        // Uparujemo po korisničkom imenu sa nalozima koji već postoje na serveru;
+        // nalozi iz fajla koji ovde ne postoje se preskaču (nalog mora prvo
+        // biti dodat preko "+ Nalog", jer uvoz ne šalje API ključeve).
+        let matched = 0;
+        let skipped = 0;
+        imported.forEach((item) => {
+            const acc = state.accounts.find((a) => a.username === item.username);
+            if (!acc) { skipped++; return; }
+            matched++;
+            if (Array.isArray(item.messages)) acc.messages = item.messages;
+            if (item.messageIntervalMinutes) acc.messageIntervalMs = Math.max(1, Number(item.messageIntervalMinutes)) * 60000;
+            markDirty(acc.id);
+        });
+
+        renderAll();
+        alert(`Učitano iz fajla: ${matched} naloga povezano${skipped ? `, ${skipped} preskočeno (nalog ne postoji ovde)` : ''}. Klikni "Sačuvaj sve poruke" da pošalješ izmene na server.`);
+    });
+
+    // ---------- Modal: dodavanje naloga ----------
+    const overlay = document.getElementById('overlay');
+    const openAdd = document.getElementById('openAdd');
+    const cancelAdd = document.getElementById('cancelAdd');
+    const confirmAdd = document.getElementById('confirmAdd');
+    const formError = document.getElementById('formError');
+
+    openAdd.addEventListener('click', () => {
+        document.getElementById('fUsername').value = '';
+        document.getElementById('fApikey').value = '';
+        document.getElementById('fNickname').value = '';
+        formError.textContent = '';
+        overlay.classList.add('show');
+        document.getElementById('fUsername').focus();
+    });
+    cancelAdd.addEventListener('click', () => overlay.classList.remove('show'));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('show'); });
+
+    confirmAdd.addEventListener('click', async () => {
+        const username = document.getElementById('fUsername').value.trim();
+        const apikey = document.getElementById('fApikey').value.trim();
+        const nickname = document.getElementById('fNickname').value.trim();
+
+        if (!username || !apikey) {
+            formError.textContent = 'Korisničko ime i API ključ su obavezni.';
+            return;
+        }
+
+        confirmAdd.disabled = true;
+        try {
+            await api('/api/accounts', { method: 'POST', body: JSON.stringify({ username, apikey, nickname }) });
+            overlay.classList.remove('show');
+            load();
+        } catch (err) {
+            formError.textContent = err.message;
+        } finally {
+            confirmAdd.disabled = false;
+        }
+    });
+
+    load();
+    setInterval(load, 8000);
+</script>
+</body>
+</html>
