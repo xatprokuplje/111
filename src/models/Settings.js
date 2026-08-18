@@ -56,7 +56,7 @@ export const Settings = sequelize.define("settings", {
     },
     openAiDetect: {
         type: DataTypes.BOOLEAN,
-        defaultValue: true
+        defaultValue: false
     },
     linkWhitelist: {
         type: DataTypes.STRING,
