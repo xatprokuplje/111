@@ -546,8 +546,9 @@ export class Bot {
             }
         }
 
-        // OpenAI moderation
-        if (!reason && openAiDetect) {
+        // OpenAI moderation - preskače se ako nema OPENAI_KEY (nema smisla
+        // gađati API bez ključa na svaku poruku, samo puni log sa greškama).
+        if (!reason && openAiDetect && this.OpenAI.apiKey) {
             try {
                 const result = await this.OpenAI.moderate(message);
                 const flags = this.OpenAI.constructor.parseModerationResult(result);
